@@ -30,7 +30,7 @@ pipeline {
                     python3 --version || python --version
                     pip3 --version || pip --version
                     docker --version
-                    docker compose version || docker-compose --version
+                    docker compose version 2>/dev/null || docker-compose --version 2>/dev/null || echo "⚠️ compose not available (fallback to docker run)"
                     echo "PIP_CACHE_DIR=$PIP_CACHE_DIR"
                 '''
             }
