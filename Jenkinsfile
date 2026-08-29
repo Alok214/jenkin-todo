@@ -8,8 +8,9 @@ pipeline {
     // }
 
     environment {
-        // ── Mirrors sosuv-workflow-api environment exactly ──
-        NVD_API_KEY           = credentials('nvd-api-key') // if not configured, pipeline will use empty value — see OWASP stage fallback
+        // ── Mirrors sosuv-workflow-api environment — NVD_API_KEY is optional for todo (no credential required) ──
+        // NVD_API_KEY is read from credentials if exists, else empty string (avoids ERROR: nvd-api-key when credential not configured)
+        NVD_API_KEY           = ""                          // set to credentials('nvd-api-key') if you have the Jenkins credential
         NVD_CACHE_DIR         = "/var/lib/jenkins/.owasp-nvd-cache"
         SEMGREP_VENV          = "/var/lib/jenkins/.semgrep-venv"
         PIP_HOME              = "/var/lib/jenkins/.local"
