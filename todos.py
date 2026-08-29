@@ -33,6 +33,11 @@ async def root() -> dict:
     return {"message": "WELCOME  to the Todo API is running."}
 
 
+@app.get("/health")
+async def health() -> dict:
+    return {"status": "ok"}
+
+
 @app.get("/todos", response_model=List[Todo])
 async def list_todos() -> List[Todo]:
     return todos
