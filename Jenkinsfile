@@ -4,7 +4,7 @@ pipeline {
     environment {
         // ── Mirrors sosuv-workflow-api environment ──
         SEMGREP_VENV        = "/var/lib/jenkins/.semgrep-venv"
-        CVSS_FAIL_THRESHOLD = "7"                 // fail on HIGH+CRITICAL (9 = CRITICAL only)
+        CVSS_FAIL_THRESHOLD = "7"                 // sosuv-workflow-api uses 7 (fail on HIGH+CRITICAL)
         PIP_CACHE_DIR       = "/var/lib/jenkins/.pip-cache"
 
         // ── Deploy target (same pattern as sosuv) ──
@@ -230,10 +230,14 @@ pipeline {
                     echo "========================================"
                     echo " STAGE: Deploy New Container"
                     echo "========================================"
-                    if [ -f "docker-compose.yml" ]; then
-                        IMAGE_TAG=${IMAGE_TAG} HOST_PORT=${HOST_PORT} docker compose up -d --build
-                        docker compose ps
+                    # Check if compose plugin exists, fallback to docker run (Jenkins controller has no compose plugin)
+                    if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && [ -f "docker-compose.yml" ]; then
+                        echo "Using docker compose"
+                        IMAGE_TAG=${IMAGE_TAG} HOST_PORT=${HOST_PORT} docker compose up -d --build || \
+                            docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} --restart unless-stopped ${IMAGE_NAME}:latest
+                        docker compose ps 2>/dev/null || docker ps | grep ${CONTAINER_NAME} || true
                     else
+                        echo "Compose not available — using docker run"
                         docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} --restart unless-stopped ${IMAGE_NAME}:latest
                         docker ps | grep ${CONTAINER_NAME}
                     fi
