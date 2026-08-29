@@ -8,9 +8,10 @@ pipeline {
     // }
 
     environment {
-        // ── Mirrors sosuv-workflow-api environment — NVD_API_KEY is optional for todo (no credential required) ──
-        // NVD_API_KEY is read from credentials if exists, else empty string (avoids ERROR: nvd-api-key when credential not configured)
-        NVD_API_KEY           = ""                          // set to credentials('nvd-api-key') if you have the Jenkins credential
+        // ── Mirrors sosuv-workflow-api — NVD_API_KEY is OPTIONAL (sosuv requires it, todo does not) ──
+        // Do NOT use credentials('nvd-api-key') here — it fails if credential missing (ERROR: nvd-api-key).
+        // Instead keep empty and load optionally in OWASP stage via withCredentials try/catch.
+        NVD_API_KEY_OPTIONAL  = ""                          // will be overridden if credential exists
         NVD_CACHE_DIR         = "/var/lib/jenkins/.owasp-nvd-cache"
         SEMGREP_VENV          = "/var/lib/jenkins/.semgrep-venv"
         PIP_HOME              = "/var/lib/jenkins/.local"
@@ -187,13 +188,27 @@ pipeline {
         }
 
         // ── Stage 4: OWASP CVE Scan — Jenkinsfile:140 (identical to sosuv, with Python fallback) ──
+        // NVD_API_KEY is OPTIONAL: try to load from Jenkins credential 'nvd-api-key' if exists, else use empty string
         stage('OWASP CVE Scan') {
             steps {
+                script {
+                    // ── Optional credential load (does NOT fail if missing) ──
+                    try {
+                        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_CRED')]) {
+                            env.NVD_API_KEY_OPTIONAL = env.NVD_CRED
+                            echo "✅ NVD_API_KEY loaded from credential"
+                        }
+                    } catch (e) {
+                        echo "⚠️ NVD_API_KEY credential 'nvd-api-key' not found — using empty (public NVD, may be rate-limited)"
+                        env.NVD_API_KEY_OPTIONAL = ""
+                    }
+                }
                 sh '''
                     set -e
                     echo "========================================"
                     echo " STAGE: OWASP Dependency CVE Scan"
                     echo "========================================"
+                    echo "NVD_API_KEY set: $([ -n "${NVD_API_KEY_OPTIONAL}" ] && echo "yes (from credential)" || echo "no (empty, optional)")"
 
                     mkdir -p "${NVD_CACHE_DIR}" 2>/dev/null || mkdir -p /tmp/nvd-cache && export NVD_CACHE_DIR=/tmp/nvd-cache || true
 
@@ -209,7 +224,7 @@ pipeline {
                         mvn org.owasp:dependency-check-maven:check \
                             -DfailBuildOnCVSS=0 \
                             -Dformats=HTML,JSON \
-                            -Dnvd.api.key="${NVD_API_KEY}" \
+                            -Dnvd.api.key="${NVD_API_KEY_OPTIONAL}" \
                             -DdataDirectory="${NVD_CACHE_DIR}" \
                             -DretireJsAnalyzerEnabled=false \
                             -DnodeAnalyzerEnabled=false \
