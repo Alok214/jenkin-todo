@@ -30,7 +30,7 @@ def get_next_id() -> int:
 
 @app.get("/")
 async def root() -> dict:
-    return {"message": "WELCOME- Todo API is running."}
+    return {"message": "WELCOME  to the Todo API is running."}
 
 
 @app.get("/todos", response_model=List[Todo])
